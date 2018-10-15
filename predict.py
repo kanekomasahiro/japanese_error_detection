@@ -2,16 +2,13 @@ from eval_model import Model
 import torch
 import math
 from torch.autograd import Variable
-import sys
 import MeCab
 
 
-def main():
-    args = sys.argv
+def detect_errors(input, threshold=0.5):
     tagger = MeCab.Tagger("-Owakati")
     softmax = torch.nn.Softmax(dim=2)
 
-    input = args[1]
     input = tagger.parse(input).strip()
     input = input.split()
 
@@ -26,12 +23,16 @@ def main():
 
     char_input = Variable(char_input.unsqueeze(0))
     word_input = Variable(word_input.view(-1, 1))
-    word_pres = rnn.predict(char_input, word_input)
-    word_pres = softmax(word_pres)[:,:,1].view(-1).tolist()
+    scores = rnn.predict(char_input, word_input)
+    scores = softmax(scores)[:,:,1].view(-1).tolist()
+    labels = [int(score > threshold) for score in scores]
 
-    print(input)
-    print(word_pres)
+    return input, labels
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    args = sys.argv
+    input, scores = detect_errors(args[1])
+    print(input)
+    print(scores)
