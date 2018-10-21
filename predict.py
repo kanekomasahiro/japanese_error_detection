@@ -5,14 +5,17 @@ from torch.autograd import Variable
 import MeCab
 
 
-def detect_errors(input, threshold=0.5):
-    tagger = MeCab.Tagger("-Owakati")
+def detect_errors(input, model_type='word', threshold=0.5):
     softmax = torch.nn.Softmax(dim=2)
+    if model_type == 'word':
+        tagger = MeCab.Tagger("-Owakati")
 
-    input = tagger.parse(input).strip()
-    input = input.split()
+        input = tagger.parse(input).strip()
+        input = input.split()
+    elif model_type == 'char':
+        input = list(input)
 
-    rnn = Model()
+    rnn = Model(model_type)
 
     char_maxlen = 15
     test = {}
@@ -27,12 +30,13 @@ def detect_errors(input, threshold=0.5):
     scores = softmax(scores)[:,:,1].view(-1).tolist()
     labels = [int(score > threshold) for score in scores]
 
-    return input, labels
+    return input, labels, scores
 
 
 if __name__ == "__main__":
     import sys
     args = sys.argv
-    input, scores = detect_errors(args[1])
+    input, labels, scores = detect_errors(args[1], model_type=args[2])
     print(input)
+    print(labels)
     print(scores)

@@ -5,15 +5,17 @@ import model
 
 
 class Model(object):
-    def __init__(self):
-        eval_model = 'model/ja_model'
+    def __init__(self, model_type):
+        if model_type == 'word':
+            eval_model = 'model/ja_model_word'
+        elif model_type == 'char':
+            eval_model = 'model/ja_model_char'
 
         checkpoint = torch.load(eval_model, map_location=lambda storage, loc: storage)
         self.model_hp = checkpoint['hp']
         self.vocab = checkpoint['vocab']
-        self.pre = self.model_hp.predict
 
-        rnn = model.Model(self.model_hp, self.vocab)
+        rnn = model.Model(self.model_hp, self.vocab, model_type)
 
         rnn.load_state_dict(checkpoint['rnn'])
 

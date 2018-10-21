@@ -35,23 +35,28 @@ class char_RNN(nn.Module):
 
 class Model(nn.Module):
 
-    def __init__(self, hp, vocab):
+    def __init__(self, hp, vocab, model_type):
         layers = hp.layers
         num_directions = 2 if hp.brnn else 1
         assert hp.rnn_size % num_directions == 0
         word_emb_size = hp.word_emb_size
         char_rnn_size = hp.char_rnn_size
         word_vocab_size = len(vocab['word'])
+        self.model_type = model_type
 
         super(Model, self).__init__()
         self.word_lut = nn.Embedding(word_vocab_size,
                                   word_emb_size,
                                   padding_idx=hp.PAD)
-        self.char_lut = char_RNN(hp, vocab)
-
-        self.rnn = nn.LSTM(word_emb_size+char_rnn_size*2, hp.rnn_size,
-                        num_layers=layers,
-                        bidirectional=hp.brnn)
+        if self.model_type == 'word':
+            self.char_lut = char_RNN(hp, vocab)
+            self.rnn = nn.LSTM(word_emb_size+char_rnn_size*2, hp.rnn_size,
+                            num_layers=layers,
+                            bidirectional=hp.brnn)
+        elif self.model_type == 'char':
+            self.rnn = nn.LSTM(word_emb_size, hp.rnn_size,
+                            num_layers=layers,
+                            bidirectional=hp.brnn)
 
         self.linear_rnn = nn.Linear(hp.rnn_size*2, hp.rnn_output_size)
         self.tanh = nn.Tanh()
@@ -60,9 +65,10 @@ class Model(nn.Module):
         self.linear_pre = nn.Linear(hp.attention_size, 2)
 
     def forward(self, char_input, word_input, hidden=None):
-        word_emb = self.word_lut(word_input)
-        char_emb = self.char_lut(char_input)
-        emb = torch.cat((word_emb, char_emb), -1)
+        emb = self.word_lut(word_input)
+        if self.model_type == 'word':
+            char_emb = self.char_lut(char_input)
+            emb = torch.cat((emb, char_emb), -1)
         outputs, _ = self.rnn(emb, hidden)
         hiddens = self.tanh(self.linear_rnn(outputs))
         d = self.tanh(self.linear_in(hiddens))
