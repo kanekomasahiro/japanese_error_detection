@@ -1,6 +1,8 @@
 # 日本語文法誤り検出器
-事前に学習済み[単語分散表現](http://www.asahi.com/shimbun/medialab/word_embedding/)をダウンロードし `hyperparams/hyperparams_japanese_ged.py` の `word_embedding` に記載した箇所にに配置する。  
+事前に学習済み[単語分散表現](http://www.asahi.com/shimbun/medialab/word_embedding/)をダウンロードし`hyperparams/hyperparams_japanese_ged.py`の`word_embedding` に記載した箇所にに配置する。  
 
+1行に1単語とタブ区切りでラベルが書かれたデータ形式。`sample.txt`を参考にして作成する。  
+`hyperparams/hyperparams_japanese_ged.py`の`train_file`, `valid_file`, `test_file`にそれぞれ適切なパスを記載する。  
 以下のコマンドを実行し前処理をする：
 ```
 mkdir model_data
