@@ -35,43 +35,49 @@ class char_RNN(nn.Module):
 
 class Model(nn.Module):
 
-    def __init__(self, hp, vocab, model_type):
+    def __init__(self, hp, vocab):
+        self.model_type = hp.model_type # word or char&word
         layers = hp.layers
         num_directions = 2 if hp.brnn else 1
         assert hp.rnn_size % num_directions == 0
         word_emb_size = hp.word_emb_size
         char_rnn_size = hp.char_rnn_size
         word_vocab_size = len(vocab['word'])
-        self.model_type = model_type
+        self.tag_num = hp.tag_num
 
         super(Model, self).__init__()
         self.word_lut = nn.Embedding(word_vocab_size,
                                   word_emb_size,
                                   padding_idx=hp.PAD)
+        self.dropout = nn.Dropout(p=hp.dropout_rate)
+
         if self.model_type == 'word':
-            self.char_lut = char_RNN(hp, vocab)
-            self.rnn = nn.LSTM(word_emb_size+char_rnn_size*2, hp.rnn_size,
+            self.rnn = nn.LSTM(word_emb_size, hp.rnn_size,
                             num_layers=layers,
                             bidirectional=hp.brnn)
-        elif self.model_type == 'char':
-            self.rnn = nn.LSTM(word_emb_size, hp.rnn_size,
+        if self.model_type == 'char&word':
+            self.char_lut = char_RNN(hp, vocab)
+            self.rnn = nn.LSTM(word_emb_size+char_rnn_size*2, hp.rnn_size,
                             num_layers=layers,
                             bidirectional=hp.brnn)
 
         self.linear_rnn = nn.Linear(hp.rnn_size*2, hp.rnn_output_size)
         self.tanh = nn.Tanh()
-        self.sigmoid = nn.Sigmoid()
-        self.linear_in = nn.Linear(hp.rnn_output_size, hp.attention_size)
-        self.linear_pre = nn.Linear(hp.attention_size, 2)
+        self.linear_pre = nn.Linear(hp.rnn_output_size, self.tag_num)
+        #self.linear_in = nn.Linear(hp.rnn_output_size, hp.attention_size)
+        #self.linear_pre = nn.Linear(hp.attention_size, self.tag_num)
 
     def forward(self, char_input, word_input, hidden=None):
-        emb = self.word_lut(word_input)
+        word_emb = self.word_lut(word_input)
         if self.model_type == 'word':
+            emb = self.dropout(word_emb)
+        elif self.model_type == 'char&word':
             char_emb = self.char_lut(char_input)
-            emb = torch.cat((emb, char_emb), -1)
-        outputs, _ = self.rnn(emb, hidden)
+            emb = self.dropout(torch.cat((word_emb, char_emb), -1))
+        outputs, _ = self.rnn(emb)
+        outputs = self.dropout(outputs)
         hiddens = self.tanh(self.linear_rnn(outputs))
-        d = self.tanh(self.linear_in(hiddens))
-        word_pres = self.linear_pre(d)
+        #d = self.tanh(self.linear_in(hiddens))
+        word_pres = self.linear_pre(hiddens)
 
         return word_pres
